@@ -1,0 +1,7 @@
+- Abgaben verwalten:
+    - Menge
+    - Wer?
+    - Bezahlt [Personen]
+    - Nicht bezahlt [Personen]
+    - Erinnerung an Personen, welche nicht bezahlt haben
+- Sanktionen verwalten:
