@@ -1,7 +1,8 @@
 require('dotenv').config()
 const fs = require('fs')
 const { Events, ActivityType, Collection } = require('discord.js')
-const mongoose = require('mongoose')
+const { connectDB } = require('./connectDB')
+
 const client = require('./utils/client.js')
 
 client.commands = new Collection()
@@ -14,15 +15,8 @@ commandFiles.forEach((commandFile) => {
   const command = require(`./commands/${commandFile}`)
   client.commands.set(command.data.name, command)
 })
-;(async () => {
-  try {
-    await mongoose.connect(process.env.DATABASE_URL)
-    console.log('DB connected')
-    return client.login(process.env.DISCORD_TOKEN)
-  } catch (error) {
-    console.error(error)
-  }
-})()
+
+connectDB()
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand) return
@@ -39,10 +33,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
   }
-})
-
-client.on('guildCreate', async (guild) => {
-  console.log(guild.id)
 })
 
 client.once('ready', (client) => {

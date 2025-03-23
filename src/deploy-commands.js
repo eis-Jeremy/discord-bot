@@ -10,6 +10,9 @@ const commandFiles = fs
 
 commandFiles.forEach((commandFile) => {
   const command = require(`./commands/${commandFile}`)
+
+  console.log(command)
+
   commands.push(command.data.toJSON())
 })
 
