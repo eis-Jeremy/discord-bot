@@ -20,5 +20,4 @@ commandFiles.forEach((commandFile) => {
 
 connectDB()
 interact(client)
-
 botLogin(client)
