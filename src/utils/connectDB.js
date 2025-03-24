@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const client = require('./utils/client')
+const client = require('./client')
 
 const connectDB = async () => {
   try {

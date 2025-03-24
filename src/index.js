@@ -1,7 +1,9 @@
 require('dotenv').config()
 const fs = require('fs')
-const { Events, ActivityType, Collection } = require('discord.js')
-const { connectDB } = require('./connectDB')
+const { Collection } = require('discord.js')
+const { connectDB } = require('./utils/connectDB.js')
+const interact = require('./utils/interact.js')
+const botLogin = require('./utils/botLogin.js')
 
 const client = require('./utils/client.js')
 
@@ -17,28 +19,6 @@ commandFiles.forEach((commandFile) => {
 })
 
 connectDB()
+interact(client)
 
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand) return
-
-  const command = client.commands.get(interaction.commandName)
-  if (command) {
-    try {
-      await command.execute(interaction)
-    } catch (error) {
-      if (interaction.deferred || interaction.replied) {
-        interaction.editReply('Fehler beim Ausführen')
-      } else {
-        interaction.reply('Fehler beim Ausführen')
-      }
-    }
-  }
-})
-
-client.once('ready', (client) => {
-  console.log(`Ready! Logged in as: ${client.user.tag}!`)
-  client.user.setPresence({
-    activities: [{ name: `/abgaben`, type: ActivityType.Watching }],
-    status: 'online',
-  })
-})
+botLogin(client)
