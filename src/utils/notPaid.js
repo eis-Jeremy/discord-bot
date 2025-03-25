@@ -5,8 +5,7 @@ const {
   Events,
 } = require('discord.js')
 const client = require('./client')
-const pag = require('./pag')
-const { maxOptionsPerPage } = require('./infos')
+const { maxOptionsPerPage } = require('./data')
 
 async function notPaid(interaction, membersInRole) {
   try {
@@ -39,7 +38,22 @@ function createSelectMenuNotPaid(page, membersInRole) {
       description: `ID: ${member.value}`,
     }))
 
-  pag(membersInRole, page, options)
+  if (totalPages > 1) {
+    if (page > 0) {
+      options.push({
+        label: '⬅️ Vorherige Seite',
+        value: `page_${page - 1}`,
+        description: `Gehe zu Seite ${page}`,
+      })
+    }
+    if (page < totalPages - 1) {
+      options.push({
+        label: '➡️ Nächste Seite',
+        value: `page_${page + 1}`,
+        description: `Gehe zu Seite ${page + 2}`,
+      })
+    }
+  }
 
   return new StringSelectMenuBuilder()
     .setCustomId(`selectNotPaid_${page}`)

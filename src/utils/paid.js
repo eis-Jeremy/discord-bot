@@ -3,7 +3,8 @@ const {
   StringSelectMenuBuilder,
   MessageFlags,
 } = require('discord.js')
-const { maxOptionsPerPage } = require('./infos')
+const client = require('./client')
+const { maxOptionsPerPage } = require('./data')
 
 async function Paid(interaction, membersInRole) {
   try {

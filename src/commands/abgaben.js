@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
-const { ROLE_ID } = require('../utils/infos')
+const { ROLE_ID } = require('../utils/data')
 const notPaid = require('../utils/notPaid')
 
 module.exports = {
