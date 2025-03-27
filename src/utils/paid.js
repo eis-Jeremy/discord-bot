@@ -2,26 +2,27 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   MessageFlags,
+  StringSelectMenuInteraction,
+  InteractionType,
+  Events,
 } = require('discord.js')
 const client = require('./client')
 const { maxOptionsPerPage } = require('./data')
 
-async function Paid(interaction, membersInRole) {
+async function paid(interaction, membersInRole) {
   try {
-    const selectMenuNP = createSelectMenuPaid(0, membersInRole)
-    const actionRowNP = new ActionRowBuilder().addComponents(selectMenuNP)
+    const selectMenuP = createSelectMenuPaid(0, membersInRole)
+    const actionRowP = new ActionRowBuilder().addComponents(selectMenuP)
 
     await interaction.reply({
       content: 'Wer hat bezahlt?',
-      components: [actionRowNP],
+      components: [actionRowP],
       flags: MessageFlags.Ephemeral,
     })
   } catch (error) {
     console.log(error)
   }
 }
-
-module.exports = Paid
 
 function createSelectMenuPaid(page, membersInRole) {
   const totalPages = Math.ceil(membersInRole.length / maxOptionsPerPage)
@@ -37,7 +38,7 @@ function createSelectMenuPaid(page, membersInRole) {
       description: `ID: ${member.value}`,
     }))
 
-  // Steuerungsoptionen für Pagination
+  // Steuerung für Pagination
   if (totalPages > 1) {
     if (page > 0) {
       options.push({
@@ -56,7 +57,34 @@ function createSelectMenuPaid(page, membersInRole) {
   }
 
   return new StringSelectMenuBuilder()
-    .setCustomId(`selectNotPaid_${page}`)
+    .setCustomId(`selectPaid_${page}`)
     .setPlaceholder(`Nutzer auswählen (Seite ${page + 1}/${totalPages})`)
     .addOptions(options)
 }
+
+function replyOnSelectP(membersInRole) {
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isStringSelectMenu()) return
+    const [type, page] = interaction.values[0].split('_')
+
+    console.log(interaction.values[0].split('_'))
+
+    if (type === 'page') {
+      // Benutzer hat "Weiter" oder "Zurück" gewählt
+      const newPage = parseInt(page, 10)
+
+      const selectMenuPaid = createSelectMenuPaid(newPage, membersInRole)
+      const actionRow = new ActionRowBuilder().addComponents(selectMenuPaid)
+
+      await interaction.update({ components: [actionRow] })
+    } else if (type === 'user') {
+      // Benutzer hat Benutzer gewählt
+      await interaction.reply({
+        content: `<@${page}> hat bezahlt!`,
+        flags: MessageFlags.Ephemeral,
+      })
+    }
+  })
+}
+
+module.exports = { paid, replyOnSelectP }

@@ -3,6 +3,7 @@ const {
   StringSelectMenuBuilder,
   MessageFlags,
   Events,
+  StringSelectMenuInteraction,
 } = require('discord.js')
 const client = require('./client')
 const { maxOptionsPerPage } = require('./data')
@@ -21,8 +22,6 @@ async function notPaid(interaction, membersInRole) {
     console.log(error)
   }
 }
-
-module.exports = notPaid
 
 function createSelectMenuNotPaid(page, membersInRole) {
   const totalPages = Math.ceil(membersInRole.length / maxOptionsPerPage)
@@ -61,22 +60,29 @@ function createSelectMenuNotPaid(page, membersInRole) {
     .addOptions(options)
 }
 
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isStringSelectMenu()) return
-  const [type, page] = interaction.values[0].split('_')
+function replyOnSelectNP(membersInRole) {
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isStringSelectMenu()) return
+    const [type, page] = interaction.values[0].split('_')
 
-  if (type === 'page') {
-    // Benutzer hat "Weiter" oder "Zurück" gewählt
-    const newPage = parseInt(page, 10)
+    console.log(interaction.values[0].split('_'))
 
-    const selectMenuNotPaid = createSelectMenuNotPaid(newPage, membersInRole)
-    const actionRow = new ActionRowBuilder().addComponents(selectMenuNotPaid)
+    if (type === 'page') {
+      // Benutzer hat "Weiter" oder "Zurück" gewählt
+      const newPage = parseInt(page, 10)
 
-    await interaction.update({ components: [actionRow] })
-  } else if (type === 'user') {
-    await interaction.reply({
-      content: `<@${page}> hat nicht bezahlt!`,
-      flags: MessageFlags.Ephemeral,
-    })
-  }
-})
+      const selectMenuPaid = createSelectMenuNotPaid(newPage, membersInRole)
+      const actionRow = new ActionRowBuilder().addComponents(selectMenuPaid)
+
+      await interaction.update({ components: [actionRow] })
+    } else if (type === 'user') {
+      // Benutzer hat Benutzer gewählt
+      await interaction.reply({
+        content: `<@${page}> hat nicht bezahlt!`,
+        flags: MessageFlags.Ephemeral,
+      })
+    }
+  })
+}
+
+module.exports = { notPaid, replyOnSelectNP }
