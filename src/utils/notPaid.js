@@ -65,8 +65,6 @@ function replyOnSelectNP(membersInRole) {
     if (!interaction.isStringSelectMenu()) return
     const [type, page] = interaction.values[0].split('_')
 
-    console.log(interaction.values[0].split('_'))
-
     if (type === 'page') {
       // Benutzer hat "Weiter" oder "Zurück" gewählt
       const newPage = parseInt(page, 10)
@@ -76,9 +74,28 @@ function replyOnSelectNP(membersInRole) {
 
       await interaction.update({ components: [actionRow] })
     } else if (type === 'user') {
+      const targetMember = await interaction.guild.client.users.fetch(page)
+
+      console.log(targetMember)
+
+      const embed = {
+        color: 0xff0000,
+        title: 'Nicht bezahlt',
+        thumbnail: {
+          url: targetMember.displayAvatarURL(),
+        },
+        fields: [
+          {
+            name: 'Wer?',
+            value: `<@${page}>`,
+            inline: false,
+          },
+        ],
+      }
+
       // Benutzer hat Benutzer gewählt
       await interaction.reply({
-        content: `<@${page}> hat nicht bezahlt!`,
+        embeds: [embed],
         flags: MessageFlags.Ephemeral,
       })
     }
