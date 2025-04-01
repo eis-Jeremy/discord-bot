@@ -76,8 +76,6 @@ function replyOnSelectNP(membersInRole) {
     } else if (type === 'user') {
       const targetMember = await interaction.guild.client.users.fetch(page)
 
-      console.log(targetMember)
-
       const embed = {
         color: 0xff0000,
         title: 'Nicht bezahlt',

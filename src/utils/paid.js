@@ -79,8 +79,25 @@ function replyOnSelectP(membersInRole) {
       await interaction.update({ components: [actionRow] })
     } else if (type === 'user') {
       // Benutzer hat Benutzer gewählt
+      const targetMember = await interaction.guild.client.users.fetch(page)
+
+      const embed = {
+        color: 0x00ff00,
+        title: 'Bezahlt',
+        thumbnail: {
+          url: targetMember.displayAvatarURL(),
+        },
+        fields: [
+          {
+            name: 'Wer?',
+            value: `<@${page}>`,
+            inline: false,
+          },
+        ],
+      }
+
       await interaction.reply({
-        content: `<@${page}> hat bezahlt!`,
+        embeds: [embed],
         flags: MessageFlags.Ephemeral,
       })
     }
