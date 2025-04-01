@@ -7,6 +7,7 @@ const {
   TextInputStyle,
   EmbedBuilder,
   Locale,
+  MessageFlags,
 } = require('discord.js')
 
 async function createModal(interaction) {
@@ -39,6 +40,21 @@ function createEmbed(membersInRole) {
     if (!interaction.isModalSubmit()) return
 
     const amountValue = interaction.fields.getTextInputValue('amountSetup')
+
+    if (Number(amountValue) > 2 ** 53 - 1) {
+      interaction.reply({
+        content: 'Menge der Abgaben zu hoch! Bitte niedriger wählen.',
+        flags: MessageFlags.Ephemeral,
+      })
+      return
+    } else if (amountValue <= 0) {
+      interaction.reply({
+        content: 'Abgaben müssen höher als 0 sein.',
+        flags: MessageFlags.Ephemeral,
+      })
+      return
+    }
+
     const dateValue = interaction.fields.getTextInputValue('dateSetup')
 
     if (!membersInRole) return

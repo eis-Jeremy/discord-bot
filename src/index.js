@@ -1,10 +1,9 @@
 require('dotenv').config()
 const fs = require('fs')
 const { Collection } = require('discord.js')
-const connectDB = require('./utils/connectDB.js')
-const interact = require('./utils/interact.js')
-const botLogin = require('./utils/botLogin.js')
-
+const connect = require('./utils/connect')
+const interact = require('./utils/interact')
+const botLogin = require('./utils/botLogin')
 const client = require('./utils/client.js')
 
 client.commands = new Collection()
@@ -18,6 +17,6 @@ commandFiles.forEach((commandFile) => {
   client.commands.set(command.data.name, command)
 })
 
-connectDB()
+connect()
 interact(client)
 botLogin(client)
