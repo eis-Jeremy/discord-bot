@@ -2,8 +2,6 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   MessageFlags,
-  StringSelectMenuInteraction,
-  InteractionType,
   Events,
 } = require('discord.js')
 const client = require('./client')

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const { ROLE_ID } = require('../utils/data')
 const { notPaid, replyOnSelectNP } = require('../utils/notPaid')
 const { paid, replyOnSelectP } = require('../utils/paid')
+const { createModal, createEmbed } = require('../utils/setup')
 
 let membersInRole = null
 
@@ -74,7 +75,8 @@ module.exports = {
       switch (interaction.options._subcommand) {
         case 'setup':
           console.log('SETUP')
-          interaction.reply('SETUP')
+          createModal(interaction)
+          createEmbed(membersInRole)
           break
 
         case 'update':
