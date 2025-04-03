@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose')
 const client = require('./client')
 const {
   Events,
@@ -9,9 +10,10 @@ const {
   Locale,
   MessageFlags,
 } = require('discord.js')
+// const { PrismaClient } = require('@prisma/client')
 
 async function createModal(interaction) {
-  console.log(interaction.user)
+  console.log(`abgabenSetup_${interaction.user.id}`)
 
   const modalSetup = new ModalBuilder()
     .setCustomId(`abgabenSetup_${interaction.user.id}`)
@@ -59,11 +61,19 @@ function createEmbed(membersInRole) {
 
     if (!membersInRole) return
 
+    // const prisma = new PrismaClient()
+
+    // const members = await prisma.User.create({
+    //   data: {
+    //     dcUserID: membersInRole.map((member) => console.log(member.value)),
+    //   },
+    // })
+
     const notPaid = membersInRole.reduce((acc, curr) => {
       return acc + `- <@${curr.value}>\n`
     }, `>>> `)
-    const counterNotPaid = membersInRole.length
 
+    const counterNotPaid = membersInRole.length
     const isAmountString = true
     const styledAmountValue = createStyledValues(amountValue, isAmountString)
     const styledDateValue = createStyledValues(dateValue, !isAmountString)

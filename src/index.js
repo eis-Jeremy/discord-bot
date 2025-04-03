@@ -17,6 +17,5 @@ commandFiles.forEach((commandFile) => {
   client.commands.set(command.data.name, command)
 })
 
-connect()
 interact(client)
 botLogin(client)

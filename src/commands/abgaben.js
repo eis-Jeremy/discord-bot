@@ -71,6 +71,7 @@ module.exports = {
           value: m.id,
         }
       })
+      console.log(membersInRole)
 
       switch (interaction.options._subcommand) {
         case 'setup':
