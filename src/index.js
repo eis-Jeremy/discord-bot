@@ -1,7 +1,7 @@
 require('dotenv').config()
 const fs = require('fs')
 const { Collection } = require('discord.js')
-const connect = require('./utils/connect')
+const connect = require('./utils/connectDB.js')
 const interact = require('./utils/interact')
 const botLogin = require('./utils/botLogin')
 const client = require('./utils/client.js')

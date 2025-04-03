@@ -1,4 +1,3 @@
-const { default: mongoose } = require('mongoose')
 const client = require('./client')
 const {
   Events,
@@ -10,11 +9,9 @@ const {
   Locale,
   MessageFlags,
 } = require('discord.js')
-// const { PrismaClient } = require('@prisma/client')
+const prisma = require('./connectDB')
 
 async function createModal(interaction) {
-  console.log(`abgabenSetup_${interaction.user.id}`)
-
   const modalSetup = new ModalBuilder()
     .setCustomId(`abgabenSetup_${interaction.user.id}`)
     .setTitle('Abgaben einrichten')
@@ -61,13 +58,13 @@ function createEmbed(membersInRole) {
 
     if (!membersInRole) return
 
-    // const prisma = new PrismaClient()
-
-    // const members = await prisma.User.create({
-    //   data: {
-    //     dcUserID: membersInRole.map((member) => console.log(member.value)),
-    //   },
-    // })
+    const members = await prisma.user.createMany({
+      data: {
+        dcUserID: '23423543',
+        guildID: 'guild_id2345',
+        roleID: 'role_id234234',
+      },
+    })
 
     const notPaid = membersInRole.reduce((acc, curr) => {
       return acc + `- <@${curr.value}>\n`
