@@ -2,7 +2,11 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const { ROLE_ID } = require('../utils/data')
 const { notPaid, replyOnSelectNP } = require('../utils/notPaid')
 const { paid, replyOnSelectP } = require('../utils/paid')
-const { createModal, createEmbed } = require('../utils/setup')
+const {
+  createModal,
+  createEmbed,
+  createRoleSelect,
+} = require('../utils/setup')
 
 let membersInRole = null
 
@@ -76,7 +80,8 @@ module.exports = {
       switch (interaction.options._subcommand) {
         case 'setup':
           console.log('SETUP')
-          createModal(interaction)
+          createRoleSelect(interaction, 0)
+          createModal()
           createEmbed(membersInRole)
           break
 
@@ -86,7 +91,6 @@ module.exports = {
           break
 
         case 'paid':
-          // console.log('PAID')
           paid(interaction, membersInRole)
           replyOnSelectP(membersInRole)
           break
@@ -96,9 +100,6 @@ module.exports = {
 
           notPaid(interaction, membersInRole)
           replyOnSelectNP(membersInRole)
-
-          // interaction.reply('NOT-PAID')
-
           break
       }
     } catch (error) {

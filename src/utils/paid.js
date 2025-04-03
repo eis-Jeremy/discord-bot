@@ -65,8 +65,6 @@ function replyOnSelectP(membersInRole) {
     if (!interaction.isStringSelectMenu()) return
     const [type, page] = interaction.values[0].split('_')
 
-    console.log(interaction.values[0].split('_'))
-
     if (type === 'page') {
       // Benutzer hat "Weiter" oder "Zurück" gewählt
       const newPage = parseInt(page, 10)

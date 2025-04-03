@@ -1,4 +1,5 @@
 const client = require('./client')
+const { maxOptionsPerPage } = require('./data')
 const {
   Events,
   ModalBuilder,
@@ -8,30 +9,98 @@ const {
   EmbedBuilder,
   Locale,
   MessageFlags,
+  StringSelectMenuBuilder,
 } = require('discord.js')
 const prisma = require('./connectDB')
 
-async function createModal(interaction) {
-  const modalSetup = new ModalBuilder()
-    .setCustomId(`abgabenSetup_${interaction.user.id}`)
-    .setTitle('Abgaben einrichten')
+let roleID = null
+let guildID = null
+let dcUserID = null
 
-  const amountSetup = new TextInputBuilder()
-    .setCustomId('amountSetup')
-    .setLabel('Menge der Abgaben')
-    .setStyle(TextInputStyle.Short)
+async function getSortedRoles(interaction) {
+  const roles = await interaction.guild.roles.fetch()
+  const sortedRoles = roles
+    .map((role) => ({
+      label: role.name,
+      value: role.id,
+      position: role.position,
+    }))
+    .sort((a, b) => b.position - a.position) // Sortiert nach Server-Reihenfolge
 
-  const dateSetup = new TextInputBuilder()
-    .setCustomId('dateSetup')
-    .setLabel('Abgabefrist (DD.MM.YYYY)')
-    .setStyle(TextInputStyle.Short)
+  return sortedRoles
+}
 
-  const actionRow1Setup = new ActionRowBuilder().addComponents(amountSetup)
-  const actionRow2Setup = new ActionRowBuilder().addComponents(dateSetup)
+async function createRoleSelect(interaction, newPage) {
+  guildID = interaction.guild.id
 
-  modalSetup.addComponents(actionRow1Setup, actionRow2Setup)
+  const sortedRoles = await getSortedRoles(interaction)
 
-  await interaction.showModal(modalSetup)
+  const roleSelect = await createRoleSelectMenu(
+    newPage,
+    sortedRoles,
+    interaction
+  )
+
+  const actionRow = new ActionRowBuilder().addComponents(await roleSelect)
+
+  await interaction.reply({
+    content: 'Welche Rolle soll Abgaben bezahlen?',
+    components: [actionRow],
+    flags: MessageFlags.Ephemeral,
+  })
+}
+
+function createModal() {
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isStringSelectMenu()) return
+
+    const [type, page] = interaction.values[0].split('_')
+
+    const sortedRoles = await getSortedRoles(interaction)
+
+    if (type === 'role') {
+      roleID = page
+
+      const modalSetup = new ModalBuilder()
+        .setCustomId(`abgabenSetup_${interaction.user.id}`)
+        .setTitle('Abgaben einrichten')
+
+      const amountSetup = new TextInputBuilder()
+        .setCustomId('amountSetup')
+        .setLabel('Menge der Abgaben')
+        .setStyle(TextInputStyle.Short)
+
+      const dateSetup = new TextInputBuilder()
+        .setCustomId('dateSetup')
+        .setLabel('Abgabefrist (DD.MM.YYYY)')
+        .setStyle(TextInputStyle.Short)
+
+      const actionRow1Setup = new ActionRowBuilder().addComponents(amountSetup)
+      const actionRow2Setup = new ActionRowBuilder().addComponents(dateSetup)
+
+      modalSetup.addComponents(actionRow1Setup, actionRow2Setup)
+
+      await interaction.showModal(modalSetup)
+    } else if (type === 'page') {
+      const newPage = parseInt(page, 10)
+
+      const roleMenu = await createRoleSelectMenu(
+        newPage,
+        sortedRoles,
+        interaction
+      )
+
+      const actionRow = new ActionRowBuilder().addComponents(roleMenu)
+
+      try {
+        await interaction.update({
+          components: [actionRow],
+        })
+      } catch (error) {
+        console.log(error)
+      }
+    }
+  })
 }
 
 function createEmbed(membersInRole) {
@@ -57,6 +126,9 @@ function createEmbed(membersInRole) {
     const dateValue = interaction.fields.getTextInputValue('dateSetup')
 
     if (!membersInRole) return
+
+    const guildID = process.env.GUILD_ID
+    console.log(guildID)
 
     const members = await prisma.user.createMany({
       data: {
@@ -111,7 +183,7 @@ function createEmbed(membersInRole) {
   })
 }
 
-module.exports = { createModal, createEmbed }
+module.exports = { createModal, createEmbed, createRoleSelect }
 
 function createDateTimeString() {
   return `${new Date(Date.now()).toLocaleDateString(Locale.German, {
@@ -129,4 +201,43 @@ function createHorizontalRule(amountString, dateString) {
   let calculatedLengthOfHR = amountString.length + dateString.length - 6
 
   return '\u2500'.repeat(calculatedLengthOfHR)
+}
+
+async function createRoleSelectMenu(page, sortedRoles, interaction) {
+  const totalPages = Math.ceil(sortedRoles.length / maxOptionsPerPage)
+  const startIndex = page * maxOptionsPerPage
+
+  const options = sortedRoles
+    .slice(startIndex, startIndex + maxOptionsPerPage)
+    .map((role) => ({
+      label:
+        role.label.length > 100
+          ? role.label.substring(0, 97) + '...'
+          : role.label,
+      value: `role_${role.value}`,
+      description: `ID: ${role.value}`,
+    }))
+
+  // Steuerung für Pagination
+  if (totalPages > 1) {
+    if (page > 0) {
+      options.push({
+        label: '⬅️ Vorherige Seite',
+        value: `page_${page - 1}`,
+        description: `Gehe zu Seite ${page}`,
+      })
+    }
+    if (page < totalPages - 1) {
+      options.push({
+        label: '➡️ Nächste Seite',
+        value: `page_${page + 1}`,
+        description: `Gehe zu Seite ${page + 2}`,
+      })
+    }
+  }
+
+  return new StringSelectMenuBuilder()
+    .setCustomId('setupRoleSelect_' + interaction.user.id)
+    .setOptions(options)
+    .setPlaceholder(`Rolle auswählen (Seite ${page + 1} / ${totalPages})`)
 }
