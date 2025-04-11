@@ -1,4 +1,5 @@
 const client = require('./client')
+const prisma = require('./connectDB')
 const { maxOptionsPerPage } = require('./data')
 const {
   Events,
@@ -10,38 +11,48 @@ const {
   Locale,
   MessageFlags,
   StringSelectMenuBuilder,
+  ChannelType,
 } = require('discord.js')
-const prisma = require('./connectDB')
 
+// Globale Variablen
 let roleID = null
+let channelID = null
 let guildID = null
 let dcUserID = null
 
-async function getSortedRoles(interaction) {
-  const roles = await interaction.guild.roles.fetch()
-  const sortedRoles = roles
-    .map((role) => ({
-      label: role.name,
-      value: role.id,
-      position: role.position,
-    }))
-    .sort((a, b) => b.position - a.position) // Sortiert nach Server-Reihenfolge
+// ======================= ZENTRALER EVENT-HANDLER =======================
 
-  return sortedRoles
-}
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId.startsWith('setupRoleSelect_')) {
+        await handleRoleSelect(interaction)
+      } else if (interaction.customId.startsWith('setupChannelSelect_')) {
+        await handleChannelSelect(interaction)
+      }
+    } else if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith('abgabenSetup_')) {
+        await handleModalSubmit(interaction)
+      }
+    }
+  } catch (error) {
+    console.error('Fehler im zentralen Event-Handler:', error)
+  }
+})
 
-async function createRoleSelect(interaction, newPage) {
+// ======================= HAUPTFUNKTION ZUM STARTEN =======================
+
+async function setup(interaction, newPage = 0) {
   guildID = interaction.guild.id
+  interaction.customId = 'setupRoleSelect_' + interaction.user.id
 
   const sortedRoles = await getSortedRoles(interaction)
-
   const roleSelect = await createRoleSelectMenu(
     newPage,
     sortedRoles,
     interaction
   )
-
-  const actionRow = new ActionRowBuilder().addComponents(await roleSelect)
+  const actionRow = new ActionRowBuilder().addComponents(roleSelect)
 
   await interaction.reply({
     content: 'Welche Rolle soll Abgaben bezahlen?',
@@ -50,175 +61,239 @@ async function createRoleSelect(interaction, newPage) {
   })
 }
 
-function createModal() {
-  client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isStringSelectMenu()) return
+// ======================= HANDLER-FUNKTIONEN =======================
 
-    const [type, page] = interaction.values[0].split('_')
+async function handleRoleSelect(interaction) {
+  const [type, page] = interaction.values[0].split('_')
+  const sortedRoles = await getSortedRoles(interaction)
+  const sortedChannels = await getSortedChannels(interaction)
 
-    const sortedRoles = await getSortedRoles(interaction)
+  if (type === 'role') {
+    roleID = page
 
-    if (type === 'role') {
-      roleID = page
+    interaction.customId = 'setupChannelSelect_' + interaction.user.id
+    const channelSelect = await createChannelSelectMenu(
+      0,
+      sortedChannels,
+      interaction
+    )
+    const actionRow = new ActionRowBuilder().addComponents(channelSelect)
 
-      const modalSetup = new ModalBuilder()
-        .setCustomId(`abgabenSetup_${interaction.user.id}`)
-        .setTitle('Abgaben einrichten')
+    await interaction.reply({
+      content: 'In welchen Channel sollen die Abgaben gesendet werden?',
+      components: [actionRow],
+      flags: MessageFlags.Ephemeral,
+    })
+  } else if (type === 'page') {
+    const newPage = parseInt(page, 10)
+    const roleMenu = await createRoleSelectMenu(
+      newPage,
+      sortedRoles,
+      interaction
+    )
+    const actionRow = new ActionRowBuilder().addComponents(roleMenu)
 
-      const amountSetup = new TextInputBuilder()
-        .setCustomId('amountSetup')
-        .setLabel('Menge der Abgaben')
-        .setStyle(TextInputStyle.Short)
-
-      const dateSetup = new TextInputBuilder()
-        .setCustomId('dateSetup')
-        .setLabel('Abgabefrist (DD.MM.YYYY)')
-        .setStyle(TextInputStyle.Short)
-
-      const actionRow1Setup = new ActionRowBuilder().addComponents(amountSetup)
-      const actionRow2Setup = new ActionRowBuilder().addComponents(dateSetup)
-
-      modalSetup.addComponents(actionRow1Setup, actionRow2Setup)
-
-      await interaction.showModal(modalSetup)
-    } else if (type === 'page') {
-      const newPage = parseInt(page, 10)
-
-      const roleMenu = await createRoleSelectMenu(
-        newPage,
-        sortedRoles,
-        interaction
-      )
-
-      const actionRow = new ActionRowBuilder().addComponents(roleMenu)
-
-      try {
-        await interaction.update({
-          components: [actionRow],
-        })
-      } catch (error) {
-        console.log(error)
-      }
-    }
-  })
+    await interaction.update({ components: [actionRow] })
+  }
 }
 
-function createEmbed(membersInRole) {
-  client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isModalSubmit()) return
+async function handleChannelSelect(interaction) {
+  const [type, page] = interaction.values[0].split('_')
+  const sortedChannels = await getSortedChannels(interaction)
 
-    const amountValue = interaction.fields.getTextInputValue('amountSetup')
+  if (type === 'channel') {
+    channelID = page
 
-    if (Number(amountValue) > 2 ** 53 - 1) {
-      interaction.reply({
-        content: 'Menge der Abgaben zu hoch! Bitte niedriger wählen.',
-        flags: MessageFlags.Ephemeral,
-      })
-      return
-    } else if (amountValue <= 0) {
-      interaction.reply({
-        content: 'Abgaben müssen höher als 0 sein.',
-        flags: MessageFlags.Ephemeral,
-      })
-      return
+    const modal = new ModalBuilder()
+      .setCustomId(`abgabenSetup_${interaction.user.id}`)
+      .setTitle('Abgaben einrichten')
+
+    const amount = new TextInputBuilder()
+      .setCustomId('amountSetup')
+      .setLabel('Menge der Abgaben')
+      .setStyle(TextInputStyle.Short)
+
+    const date = new TextInputBuilder()
+      .setCustomId('dateSetup')
+      .setLabel('Abgabefrist (DD.MM.YYYY)')
+      .setStyle(TextInputStyle.Short)
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(amount),
+      new ActionRowBuilder().addComponents(date)
+    )
+
+    await interaction.showModal(modal)
+  } else if (type === 'page') {
+    const newPage = parseInt(page, 10)
+    const channelMenu = await createChannelSelectMenu(
+      newPage,
+      sortedChannels,
+      interaction
+    )
+    const actionRow = new ActionRowBuilder().addComponents(channelMenu)
+
+    await interaction.update({ components: [actionRow] })
+  }
+}
+
+async function handleModalSubmit(interaction) {
+  const amountValue = interaction.fields.getTextInputValue('amountSetup')
+  const dateValue = interaction.fields.getTextInputValue('dateSetup')
+
+  if (
+    isNaN(Number(amountValue)) ||
+    Number(amountValue) <= 0 ||
+    Number(amountValue) > 2 ** 53 - 1
+  ) {
+    return await interaction.reply({
+      content: 'Ungültige Menge. Bitte gib einen gültigen Wert ein.',
+      flags: MessageFlags.Ephemeral,
+    })
+  }
+
+  const [day, month, year] = dateValue.split('.').map(Number)
+  const isValidDate =
+    String(day).length === 2 &&
+    day >= 1 &&
+    day <= 31 &&
+    String(month).length === 2 &&
+    month >= 1 &&
+    month <= 12 &&
+    String(year).length === 4 &&
+    year > 0
+
+  if (!isValidDate) {
+    return await interaction.reply({
+      content:
+        'Ungültiges Datumsformat. Bitte Format DD.MM.YYYY (D = Tag; M = Monat; Y = Jahr) verwenden!',
+      flags: MessageFlags.Ephemeral,
+    })
+  }
+
+  // Member in Rolle speichern
+  const role = await interaction.guild.roles.fetch(roleID)
+  const membersInRole = role.members.map((member) => {
+    return {
+      label: member.name,
+      value: member.id,
     }
+  })
 
-    const dateValue = interaction.fields.getTextInputValue('dateSetup')
+  // Liste der Nicht-Bezahlten Nutzer
+  let notPaid = ''
 
-    if (!membersInRole) return
+  if (membersInRole.length > 0) {
+    notPaid = membersInRole.reduce(
+      (acc, curr) => acc + `- <@${curr.value}>\n`,
+      `>>> `
+    )
+  }
 
-    const guildID = process.env.GUILD_ID
-    console.log(guildID)
-
-    const members = await prisma.user.createMany({
-      data: {
-        dcUserID: '23423543',
-        guildID: 'guild_id2345',
-        roleID: 'role_id234234',
+  const embed = new EmbedBuilder()
+    .setTitle(`Abgaben (${role.name})`)
+    .setColor('#0099FF')
+    .addFields(
+      {
+        name: '💵   |   Menge:',
+        value: createStyledValues(amountValue, true),
+        inline: false,
       },
+      {
+        name: '📅   |   Abgabedatum:',
+        value: createStyledValues(dateValue, false),
+        inline: false,
+      },
+      {
+        name: '',
+        value: createHorizontalRule('💵   |   Menge:', '📅   |   Abgabedatum:'),
+      },
+      {
+        name: `✅   |   Bezahlt (0):`,
+        value: '>>> - **Noch nicht eingerichtet**',
+        inline: true,
+      },
+      {
+        name: `❌   |   Nicht bezahlt (${notPaid.length}):`,
+        value: notPaid,
+        inline: true,
+      },
+      { name: '', value: '' }
+    )
+    .setFooter({
+      text: `Zuletzt aktualisiert: ${createDateTimeString()}\nMade by: RepublicVary0n`,
     })
 
-    const notPaid = membersInRole.reduce((acc, curr) => {
-      return acc + `- <@${curr.value}>\n`
-    }, `>>> `)
-
-    const counterNotPaid = membersInRole.length
-    const isAmountString = true
-    const styledAmountValue = createStyledValues(amountValue, isAmountString)
-    const styledDateValue = createStyledValues(dateValue, !isAmountString)
-    const amountHeading = `💵   |   Menge:`
-    const dateHeading = `📅   |   Abgabedatum:`
-    const hr = createHorizontalRule(amountHeading, dateHeading)
-
-    const embedSetup = new EmbedBuilder()
-      .setTitle('Abgaben')
-      .setColor('#0099FF')
-      .addFields(
-        {
-          name: amountHeading,
-          value: styledAmountValue,
-          inline: false,
-        },
-        { name: dateHeading, value: styledDateValue, inline: false }
-      )
-      .addFields({ name: '', value: hr })
-      .addFields(
-        {
-          name: `✅   |   Bezahlt (0):`,
-          value: '>>> - **Noch nicht eingerichtet**',
-          inline: true,
-        },
-        {
-          name: `❌   |   Nicht bezahlt (${counterNotPaid}):`,
-          value: notPaid,
-          inline: true,
-        }
-      )
-      .addFields({ name: '', value: '' })
-      .setFooter({
-        text: `Zuletzt aktualisiert: ${createDateTimeString()}\nMade by: RepublicVary0n`,
-      })
-
-    interaction.reply({ embeds: [embedSetup] })
-  })
+  await interaction.reply({ embeds: [embed] })
 }
 
-module.exports = { createModal, createEmbed, createRoleSelect }
+// ======================= UI-HILFSFUNKTIONEN =======================
+
+function createStyledValues(value, isAmount) {
+  return isAmount ? `$ ${value}` : value
+}
+
+function createHorizontalRule(amountStr, dateStr) {
+  const total = amountStr.length + dateStr.length - 6
+  return '─'.repeat(total)
+}
 
 function createDateTimeString() {
-  return `${new Date(Date.now()).toLocaleDateString(Locale.German, {
+  const now = new Date()
+  return `${now.toLocaleDateString(Locale.German, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  })} ${new Date(Date.now()).toLocaleTimeString(Locale.German, 'hh:MM:ss')}`
+  })} ${now.toLocaleTimeString(Locale.German)}`
 }
 
-function createStyledValues(string, isAmountString) {
-  return isAmountString ? `$ ${string}` : `${string}`
-}
-
-function createHorizontalRule(amountString, dateString) {
-  let calculatedLengthOfHR = amountString.length + dateString.length - 6
-
-  return '\u2500'.repeat(calculatedLengthOfHR)
-}
+// ======================= MENÜ-ERZEUGUNG =======================
 
 async function createRoleSelectMenu(page, sortedRoles, interaction) {
   const totalPages = Math.ceil(sortedRoles.length / maxOptionsPerPage)
-  const startIndex = page * maxOptionsPerPage
+  const start = page * maxOptionsPerPage
 
   const options = sortedRoles
-    .slice(startIndex, startIndex + maxOptionsPerPage)
+    .slice(start, start + maxOptionsPerPage)
     .map((role) => ({
       label:
-        role.label.length > 100
-          ? role.label.substring(0, 97) + '...'
-          : role.label,
+        role.label.length > 100 ? role.label.slice(0, 97) + '...' : role.label,
       value: `role_${role.value}`,
       description: `ID: ${role.value}`,
     }))
 
-  // Steuerung für Pagination
+  pagination(totalPages, page, options)
+
+  return new StringSelectMenuBuilder()
+    .setCustomId('setupRoleSelect_' + interaction.user.id)
+    .setOptions(options)
+    .setPlaceholder(`Rolle auswählen (Seite ${page + 1} / ${totalPages})`)
+}
+
+async function createChannelSelectMenu(page, sortedChannels, interaction) {
+  const totalPages = Math.ceil(sortedChannels.length / maxOptionsPerPage)
+  const start = page * maxOptionsPerPage
+
+  const options = sortedChannels
+    .slice(start, start + maxOptionsPerPage)
+    .map((channel) => ({
+      label:
+        channel.label.length > 100
+          ? channel.label.slice(0, 97) + '...'
+          : channel.label,
+      value: `channel_${channel.value}`,
+      description: `ID: ${channel.value}`,
+    }))
+
+  pagination(totalPages, page, options)
+
+  return new StringSelectMenuBuilder()
+    .setCustomId('setupChannelSelect_' + interaction.user.id)
+    .setOptions(options)
+    .setPlaceholder(`Kanal auswählen (Seite ${page + 1} / ${totalPages})`)
+}
+
+function pagination(totalPages, page, options) {
   if (totalPages > 1) {
     if (page > 0) {
       options.push({
@@ -235,9 +310,54 @@ async function createRoleSelectMenu(page, sortedRoles, interaction) {
       })
     }
   }
-
-  return new StringSelectMenuBuilder()
-    .setCustomId('setupRoleSelect_' + interaction.user.id)
-    .setOptions(options)
-    .setPlaceholder(`Rolle auswählen (Seite ${page + 1} / ${totalPages})`)
 }
+
+// ======================= SORTIERUNG =======================
+
+async function getSortedRoles(interaction) {
+  const roles = await interaction.guild.roles.fetch()
+  return roles
+    .map((role) => ({
+      label: role.name,
+      value: role.id,
+      position: role.position,
+    }))
+    .sort((a, b) => b.position - a.position)
+}
+
+async function getSortedChannels(interaction) {
+  try {
+    const channels = await interaction.guild.channels.fetch()
+    return [...channels.values()]
+      .filter(
+        (channel) =>
+          channel.type === ChannelType.GuildText &&
+          channel.name &&
+          channel.id &&
+          channel.rawPosition !== undefined
+      )
+      .map((channel) => ({
+        label: channel.name,
+        value: channel.id,
+        position: channel.rawPosition,
+      }))
+      .sort((a, b) => a.position - b.position)
+  } catch (error) {
+    console.error('Fehler beim Channel-Fetch:', error)
+  }
+}
+
+// ======================= EXPORTIERTES SETUP (Optional) =======================
+
+module.exports = {
+  setup,
+}
+
+// CONSOLE.LOGS
+
+client.on(Events.InteractionCreate, (interaction) => {
+  if (interaction.isModalSubmit()) {
+    console.log('Rolle: ' + roleID)
+    console.log('Channel: ' + channelID)
+  }
+})
