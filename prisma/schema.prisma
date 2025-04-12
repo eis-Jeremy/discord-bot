@@ -16,9 +16,9 @@ datasource db {
 
 model User {
   id  String  @id @default(auto()) @map("_id")  @db.ObjectId
-  dcUserID String @unique
-  guildID String  @unique 
-  roleID  String  @unique
+  dcMemberID String
+  guildID String
+  roleID  String
   status  Status  @default(NOT_PAID)
 }
 

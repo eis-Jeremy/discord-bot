@@ -18,7 +18,8 @@ const {
 let roleID = null
 let channelID = null
 let guildID = null
-let dcUserID = null
+let dcMemberIDs = null
+let notPaid = ''
 
 // ======================= ZENTRALER EVENT-HANDLER =======================
 
@@ -180,8 +181,11 @@ async function handleModalSubmit(interaction) {
     }
   })
 
+  dcMemberIDs = membersInRole.map((member) => {
+    return member.value
+  })
+
   // Liste der Nicht-Bezahlten Nutzer
-  let notPaid = ''
 
   if (membersInRole.length > 0) {
     notPaid = membersInRole.reduce(
@@ -225,6 +229,29 @@ async function handleModalSubmit(interaction) {
     })
 
   await interaction.reply({ embeds: [embed] })
+
+  console.log('Server: ' + guildID)
+  console.log('Rolle: ' + roleID)
+  console.log('Channel: ' + channelID)
+  console.log('Nutzer (Mehrere): ' + dcMemberIDs)
+
+  // prisma.user.create({
+  //   data: {
+  //     dcMemberID: 'test',
+  //     guildID: guildID,
+  //     roleID: roleID,
+  //   },
+  // })
+
+  for (const memberID of dcMemberIDs) {
+    await prisma.user.create({
+      data: {
+        dcUserID: memberID,
+        guildID: guildID,
+        roleID: roleID,
+      },
+    })
+  }
 }
 
 // ======================= UI-HILFSFUNKTIONEN =======================
@@ -355,9 +382,17 @@ module.exports = {
 
 // CONSOLE.LOGS
 
-client.on(Events.InteractionCreate, (interaction) => {
-  if (interaction.isModalSubmit()) {
-    console.log('Rolle: ' + roleID)
-    console.log('Channel: ' + channelID)
-  }
-})
+// client.on(Events.InteractionCreate, (interaction) => {
+//   // if (interaction.isModalSubmit()) {
+//   //   console.log('Server: ' + guildID)
+//   //   console.log('Rolle: ' + roleID)
+//   //   console.log('Channel: ' + channelID)
+//   //   console.log('Nutzer (Mehrere): ' + dcMemberID)
+//   //   // prisma.user.create({
+//   //   //   data: {
+//   //   //     dcUserID: dcUserID,
+//   //   //     guildID,
+//   //   //   },
+//   //   // })
+//   // }
+// })
